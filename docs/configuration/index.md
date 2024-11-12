@@ -1,0 +1,49 @@
+# Introduction
+
+sing-box uses JSON for configuration files.
+
+### Structure
+
+```json
+{
+  "log": {},
+  "dns": {},
+  "ntp": {},
+  "inbounds": [],
+  "outbounds": [],
+  "outbound_providers": [],
+  "route": {},
+  "experimental": {}
+}
+```
+
+### Fields
+
+| Key                  | Format                                   |
+|----------------------|------------------------------------------|
+| `log`                | [Log](./log/)                            |
+| `dns`                | [DNS](./dns/)                            |
+| `ntp`                | [NTP](./ntp/)                            |
+| `inbounds`           | [Inbound](./inbound/)                    |
+| `outbounds`          | [Outbound](./outbound/)                  |
+| `outbound_providers` | [OutboundProvider](./provider)           |
+| `route`              | [Route](./route/)                        |
+| `experimental`       | [Experimental](./experimental/)          |
+
+### Check
+
+```bash
+sing-box check
+```
+
+### Format
+
+```bash
+sing-box format -w -c config.json -D config_directory
+```
+
+### Merge
+
+```bash
+sing-box merge output.json -c config.json -D config_directory
+```
