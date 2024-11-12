@@ -31,7 +31,8 @@ jobs:
         uses: actions/checkout@v4.1.1
         with:
           path: sfa
-          repository: SagerNet/sing-box-for-android
+          repository: PuerNya/sing-box-for-android
+          ref: 'test'
           submodules: recursive
       
       - name: setup ndk
@@ -58,7 +59,7 @@ jobs:
       - name: build libbox
         env:
           CC: ${{steps.setup-ndk.outputs.ndk-path}}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android34-clang
-          TAGS: with_gvisor,with_dhcp,with_wireguard,with_reality_server,with_clash_api,with_quic,with_utls,with_ech
+          TAGS: with_gvisor,with_dhcp,with_wireguard,with_reality_server,with_clash_api,with_quic,with_utls,with_ech,with_provider
           VERSION: ${{steps.sing-box.outputs.version}}
           CGO_ENABLED: '0'
         run: |
