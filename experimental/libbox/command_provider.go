@@ -146,10 +146,7 @@ func readProviders(reader io.Reader) (OutboundProviderIterator, error) {
 
 func writeProviders(writer io.Writer, boxService *BoxService) error {
 	historyStorage := service.PtrFromContext[urltest.HistoryStorage](boxService.ctx)
-	var cacheFile adapter.ClashCacheFile
-	if clashServer := boxService.instance.Router().ClashServer(); clashServer != nil {
-		cacheFile = clashServer.CacheFile()
-	}
+	cacheFile := service.FromContext[adapter.CacheFile](boxService.ctx)
 
 	outbounds := boxService.instance.Router().OutboundProviders()
 	var iProviders []adapter.OutboundProvider
@@ -261,12 +258,11 @@ func (s *CommandServer) handleSetProviderExpand(conn net.Conn) error {
 	if service == nil {
 		return writeError(conn, E.New("service not ready"))
 	}
-	if clashServer := service.instance.Router().ClashServer(); clashServer != nil {
-		if cacheFile := clashServer.CacheFile(); cacheFile != nil {
-			err = cacheFile.StoreProviderExpand(providerTag, isExpand)
-			if err != nil {
-				return writeError(conn, err)
-			}
+	cacheFile := service.FromContext[adapter.CacheFile](serviceNow.ctx)
+	if cacheFile != nil {
+	    err = cacheFile.StoreProviderExpand(providerTag, isExpand)
+	   	if err != nil {
+			return writeError(conn, err)
 		}
 	}
 	return writeError(conn, nil)

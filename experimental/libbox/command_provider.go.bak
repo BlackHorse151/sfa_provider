@@ -151,7 +151,7 @@ func writeProviders(writer io.Writer, boxService *BoxService) error {
 		cacheFile = clashServer.CacheFile()
 	}
 
-	outbounds := boxService.instance.Router().Outbounds()
+	outbounds := boxService.instance.Router().OutboundProviders()
 	var iProviders []adapter.OutboundProvider
 	for _, it := range outbounds {
 		if provider, isProvider := it.(adapter.OutboundProvider); isProvider {
