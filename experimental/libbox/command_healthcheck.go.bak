@@ -41,3 +41,4 @@ func (s *CommandServer) handleHealthCheck(conn net.Conn) error {
 	}
 	go outboundProvider.CheckOutbounds(true)
 	return writeError(conn, nil)
+}

@@ -9,7 +9,7 @@ import (
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/urltest"
 	E "github.com/sagernet/sing/common/exceptions"
-	"github.com/sagernet/sing/common/rw"
+	"github.com/sagernet/sing/common/varbin"
 	"github.com/sagernet/sing/service"
 )
 
@@ -84,62 +84,9 @@ func (s *CommandServer) handleProviderConn(conn net.Conn) error {
 }
 
 func readProviders(reader io.Reader) (OutboundProviderIterator, error) {
-	var providerLength uint16
-	err := binary.Read(reader, binary.BigEndian, &providerLength)
+	providers, err := varbin.ReadValue[[]*OutboundProvider](reader, binary.BigEndian)
 	if err != nil {
 		return nil, err
-	}
-
-	providers := make([]*OutboundProvider, 0, providerLength)
-	for i := 0; i < int(providerLength); i++ {
-		var provider OutboundProvider
-		provider.Tag, err = rw.ReadVString(reader)
-		if err != nil {
-			return nil, err
-		}
-
-		provider.Type, err = rw.ReadVString(reader)
-		if err != nil {
-			return nil, err
-		}
-
-		err = binary.Read(reader, binary.BigEndian, &provider.IsExpand)
-		if err != nil {
-			return nil, err
-		}
-
-		var itemLength uint16
-		err = binary.Read(reader, binary.BigEndian, &itemLength)
-		if err != nil {
-			return nil, err
-		}
-
-		provider.items = make([]*OutboundProviderItem, itemLength)
-		for j := 0; j < int(itemLength); j++ {
-			var item OutboundProviderItem
-			item.Tag, err = rw.ReadVString(reader)
-			if err != nil {
-				return nil, err
-			}
-
-			item.Type, err = rw.ReadVString(reader)
-			if err != nil {
-				return nil, err
-			}
-
-			err = binary.Read(reader, binary.BigEndian, &item.URLTestTime)
-			if err != nil {
-				return nil, err
-			}
-
-			err = binary.Read(reader, binary.BigEndian, &item.URLTestDelay)
-			if err != nil {
-				return nil, err
-			}
-
-			provider.items[j] = &item
-		}
-		providers = append(providers, &provider)
 	}
 	return newIterator(providers), nil
 }
@@ -147,7 +94,6 @@ func readProviders(reader io.Reader) (OutboundProviderIterator, error) {
 func writeProviders(writer io.Writer, boxService *BoxService) error {
 	historyStorage := service.PtrFromContext[urltest.HistoryStorage](boxService.ctx)
 	cacheFile := service.FromContext[adapter.CacheFile](boxService.ctx)
-
 	outbounds := boxService.instance.Router().OutboundProviders()
 	var iProviders []adapter.OutboundProvider
 	for _, it := range outbounds {
@@ -178,49 +124,9 @@ func writeProviders(writer io.Writer, boxService *BoxService) error {
 		}
 		providers = append(providers, provider)
 	}
-
-	err := binary.Write(writer, binary.BigEndian, uint16(len(providers)))
-	if err != nil {
-		return err
-	}
-	for _, provider := range providers {
-		err = rw.WriteVString(writer, provider.Tag)
-		if err != nil {
-			return err
-		}
-		err = rw.WriteVString(writer, provider.Type)
-		if err != nil {
-			return err
-		}
-		err = binary.Write(writer, binary.BigEndian, provider.IsExpand)
-		if err != nil {
-			return err
-		}
-		err = binary.Write(writer, binary.BigEndian, uint16(len(provider.items)))
-		if err != nil {
-			return err
-		}
-		for _, item := range provider.items {
-			err = rw.WriteVString(writer, item.Tag)
-			if err != nil {
-				return err
-			}
-			err = rw.WriteVString(writer, item.Type)
-			if err != nil {
-				return err
-			}
-			err = binary.Write(writer, binary.BigEndian, item.URLTestTime)
-			if err != nil {
-				return err
-			}
-			err = binary.Write(writer, binary.BigEndian, item.URLTestDelay)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return varbin.Write(writer, binary.BigEndian, groups)
 }
+
 
 func (c *CommandClient) SetProviderExpand(providerTag string, isExpand bool) error {
 	conn, err := c.directConnect()
@@ -232,7 +138,7 @@ func (c *CommandClient) SetProviderExpand(providerTag string, isExpand bool) err
 	if err != nil {
 		return err
 	}
-	err = rw.WriteVString(conn, providerTag)
+	err = varbin.Write(conn, providerTag)
 	if err != nil {
 		return err
 	}
@@ -245,7 +151,7 @@ func (c *CommandClient) SetProviderExpand(providerTag string, isExpand bool) err
 
 func (s *CommandServer) handleSetProviderExpand(conn net.Conn) error {
 	defer conn.Close()
-	providerTag, err := rw.ReadVString(conn)
+	providerTag, err := varbin.ReadValue[string](conn, binary.BigEndian)
 	if err != nil {
 		return err
 	}
