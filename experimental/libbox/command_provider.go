@@ -9,7 +9,6 @@ import (
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/urltest"
-	"github.com/sagernet/sing-box/outbound"
 	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/sing/common/varbin"
 	"github.com/sagernet/sing/service"
@@ -18,8 +17,6 @@ import (
 type OutboundProvider struct {
 	Tag        string
 	Type       string
-	Selectable bool
-	Selected   string
 	IsExpand   bool
 	ItemList   []*OutboundProviderItem
 }
@@ -135,7 +132,7 @@ func writeProviders(writer io.Writer, boxService *BoxService) error {
 				item.URLTestTime = history.Time.Unix()
 				item.URLTestDelay = int32(history.Delay)
 			}
-			provider.items = append(provider.items, &item)
+			provider.ItemList = append(provider.ItemList, &item)
 		}
 		providers = append(providers, provider)
 	}
