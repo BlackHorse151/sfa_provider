@@ -5,7 +5,7 @@ import (
 	"net"
 
 	E "github.com/sagernet/sing/common/exceptions"
-	"github.com/sagernet/sing/common/rw"
+	"github.com/sagernet/sing/common/varbin"
 )
 
 func (c *CommandClient) HealthCheck(providerTag string) error {
@@ -18,7 +18,7 @@ func (c *CommandClient) HealthCheck(providerTag string) error {
 	if err != nil {
 		return err
 	}
-	err = rw.WriteVString(conn, providerTag)
+	err = varbin.Write(conn, providerTag)
 	if err != nil {
 		return err
 	}
@@ -27,7 +27,7 @@ func (c *CommandClient) HealthCheck(providerTag string) error {
 
 func (s *CommandServer) handleHealthCheck(conn net.Conn) error {
 	defer conn.Close()
-	providerTag, err := rw.ReadVString(conn)
+	providerTag, err := varbin.ReadValue[string](conn, binary.BigEndian)
 	if err != nil {
 		return err
 	}

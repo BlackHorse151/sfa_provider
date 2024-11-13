@@ -151,7 +151,7 @@ func (c *CommandClient) SetProviderExpand(providerTag string, isExpand bool) err
 
 func (s *CommandServer) handleSetProviderExpand(conn net.Conn) error {
 	defer conn.Close()
-	providerTag, err := rw.ReadVString(conn)
+	providerTag, err := varbin.ReadValue[string](conn, binary.BigEndian)
 	if err != nil {
 		return err
 	}

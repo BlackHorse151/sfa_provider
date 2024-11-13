@@ -18,7 +18,7 @@ func (c *CommandClient) HealthCheck(providerTag string) error {
 	if err != nil {
 		return err
 	}
-	err = varbin.Write(conn, providerTag)
+	err = varbin.Write(conn, binary.BigEndian, providerTag)
 	if err != nil {
 		return err
 	}

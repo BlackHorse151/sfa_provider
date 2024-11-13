@@ -1,6 +1,7 @@
 package libbox
 
 import (
+	"bufio"
 	"encoding/binary"
 	"io"
 	"net"
@@ -8,20 +9,23 @@ import (
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/urltest"
+	"github.com/sagernet/sing-box/outbound"
 	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/sing/common/varbin"
 	"github.com/sagernet/sing/service"
 )
 
 type OutboundProvider struct {
-	Tag      string
-	Type     string
-	IsExpand bool
-	items    []*OutboundProviderItem
+	Tag        string
+	Type       string
+	Selectable bool
+	Selected   string
+	IsExpand   bool
+	ItemList   []*OutboundProviderItem
 }
 
 func (g *OutboundProvider) GetItems() OutboundProviderItemIterator {
-	return newIterator(g.items)
+	return newIterator(g.ItemList)
 }
 
 type OutboundProviderIterator interface {
@@ -45,35 +49,46 @@ func (c *CommandClient) handleProviderConn(conn net.Conn) {
 	defer conn.Close()
 
 	for {
-		providers, err := readProviders(conn)
+		providers, err := readGroups(conn)
 		if err != nil {
 			c.handler.Disconnected(err.Error())
 			return
 		}
-		c.handler.WriteProviders(providers)
+		c.handler.WriteGroups(providers)
 	}
 }
 
 func (s *CommandServer) handleProviderConn(conn net.Conn) error {
-	defer conn.Close()
+	var interval int64
+	err := binary.Read(conn, binary.BigEndian, &interval)
+	if err != nil {
+		return E.Cause(err, "read interval")
+	}
+	ticker := time.NewTicker(time.Duration(interval))
+	defer ticker.Stop()
 	ctx := connKeepAlive(conn)
+	writer := bufio.NewWriter(conn)
 	for {
 		service := s.service
 		if service != nil {
-			err := writeProviders(conn, service)
+			err = writeProviders(writer, service)
 			if err != nil {
 				return err
 			}
 		} else {
-			err := binary.Write(conn, binary.BigEndian, uint16(0))
+			err = binary.Write(writer, binary.BigEndian, uint16(0))
 			if err != nil {
 				return err
 			}
 		}
+		err = writer.Flush()
+		if err != nil {
+			return err
+		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(2 * time.Second):
+		case <-ticker.C:
 		}
 		select {
 		case <-ctx.Done():
@@ -124,9 +139,8 @@ func writeProviders(writer io.Writer, boxService *BoxService) error {
 		}
 		providers = append(providers, provider)
 	}
-	return varbin.Write(writer, binary.BigEndian, groups)
+	return varbin.Write(writer, binary.BigEndian, providers)
 }
-
 
 func (c *CommandClient) SetProviderExpand(providerTag string, isExpand bool) error {
 	conn, err := c.directConnect()
@@ -138,7 +152,7 @@ func (c *CommandClient) SetProviderExpand(providerTag string, isExpand bool) err
 	if err != nil {
 		return err
 	}
-	err = varbin.Write(conn, providerTag)
+	err = varbin.Write(conn, binary.BigEndian, providerTag)
 	if err != nil {
 		return err
 	}
@@ -150,7 +164,6 @@ func (c *CommandClient) SetProviderExpand(providerTag string, isExpand bool) err
 }
 
 func (s *CommandServer) handleSetProviderExpand(conn net.Conn) error {
-	defer conn.Close()
 	providerTag, err := varbin.ReadValue[string](conn, binary.BigEndian)
 	if err != nil {
 		return err
@@ -160,14 +173,14 @@ func (s *CommandServer) handleSetProviderExpand(conn net.Conn) error {
 	if err != nil {
 		return err
 	}
-	service := s.service
-	if service == nil {
+	serviceNow := s.service
+	if serviceNow == nil {
 		return writeError(conn, E.New("service not ready"))
 	}
 	cacheFile := service.FromContext[adapter.CacheFile](serviceNow.ctx)
 	if cacheFile != nil {
-	    err = cacheFile.StoreProviderExpand(providerTag, isExpand)
-	   	if err != nil {
+		err = cacheFile.StoreProviderExpand(providerTag, isExpand)
+		if err != nil {
 			return writeError(conn, err)
 		}
 	}
